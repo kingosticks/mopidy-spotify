@@ -36,15 +36,15 @@ _TOPLIST_REGIONS = {
 }
 
 
-def browse(config, session, uri):
+def browse(config, backend, uri):
     if uri == ROOT_DIR.uri:
         return _ROOT_DIR_CONTENTS
     elif uri.startswith('spotify:user:'):
-        return _browse_playlist(session, uri, config)
+        return _browse_playlist(backend.playlists, uri, config)
     elif uri.startswith('spotify:album:'):
-        return _browse_album(session, uri, config)
+        return _browse_album(backend.session, uri, config)
     elif uri.startswith('spotify:artist:'):
-        return _browse_artist(session, uri, config)
+        return _browse_artist(backend.session, uri, config)
     elif uri.startswith('spotify:top:'):
         parts = uri.replace('spotify:top:', '').split(':')
         if len(parts) == 1:
@@ -61,12 +61,8 @@ def browse(config, session, uri):
         return []
 
 
-def _browse_playlist(session, uri, config):
-    sp_playlist = session.get_playlist(uri)
-    sp_playlist.load(config['timeout'])
-    return list(translator.to_track_refs(
-        sp_playlist.tracks, timeout=config['timeout']))
-
+def _browse_playlist(playlists, uri, config):
+    return playlists.get_items(uri)
 
 def _browse_album(session, uri, config):
     sp_album_browser = session.get_album(uri).browse()

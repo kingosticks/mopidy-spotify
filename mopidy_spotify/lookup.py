@@ -89,7 +89,7 @@ def _lookup_artist(config, sp_link):
                 yield track
 
 
-def lookup_playlist(session, web_session, config, uri):
+def _lookup_playlist(session, web_session, config, uri):
     playlist = playlists.playlist_lookup(
             session, web_session, uri, config['bitrate'])
     if playlist is None:

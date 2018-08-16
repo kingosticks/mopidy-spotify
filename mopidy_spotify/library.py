@@ -18,7 +18,7 @@ class SpotifyLibraryProvider(backend.LibraryProvider):
         self._config = backend._config['spotify']
 
     def browse(self, uri):
-        return browse.browse(self._config, self._backend._session, uri)
+        return browse.browse(self._config, self._backend, uri)
 
     def get_distinct(self, field, query=None):
         return distinct.get_distinct(
@@ -26,7 +26,7 @@ class SpotifyLibraryProvider(backend.LibraryProvider):
             self._backend._web_session._client, field, query)
 
     def get_images(self, uris):
-        return images.get_images(self._backend._web_session._client, uris)
+        return images.get_images(self._backend._web_session,_client, uris)
 
     def lookup(self, uri):
         return lookup.lookup(
