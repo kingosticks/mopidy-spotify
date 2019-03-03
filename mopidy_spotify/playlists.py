@@ -77,12 +77,39 @@ class SpotifyPlaylistsProvider(backend.PlaylistsProvider):
         pass  # TODO
 
     def save(self, playlist):
-        pass  # TODO
+        if playlist.uri.split(':')[0] != 'spotify':
+            pass
+
+        for track in playlist.tracks:
+            if track.uri.split(':')[0] != 'spotify':
+                logger.warning('Spotify cannot save playlist containing uri %s',track.uri)
+                return None
+
+        self._backend._web_session.save_playlist(playlist)
+
+        # We could just call refresh() here but this has two disadvantages:
+        # 1. We don't need to refresh the entire list
+        # 2. It happens in the background, which isn't helpful to clients.
+        #    A client will generally do Save Playlist, Refresh Playlist, Re-Display,
+        #    so if we're re-populating in the background the client has refreshed
+        #    the display before we've repopulated and it appears as if nothing
+        #    has happened. We also need to make sure we have updated our own
+        #    internal data structures, as the next command might be to move a
+        #    newly-added track to a new position, which will also fail if we
+        #    haven't refreshed our own data.
+
+        playlist_lookup(
+            self._backend._session, self._backend._web_session, playlist.uri,
+            self._backend._bitrate, True
+        )
+        return playlist
 
 
 def playlist_lookup(session, web_session, uri, bitrate, as_items=False):
     if not web_session.playlists_loaded:
         return
+
+    logger.info('Looking up playlist %s',uri)
 
     web_playlist = web_session.get_playlist(uri)
     playlist = translator.to_playlist(

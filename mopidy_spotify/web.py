@@ -61,6 +61,10 @@ class OAuthClient(object):
         self._headers = {'Content-Type': 'application/json'}
         self._session = utils.get_requests_session(proxy_config or {})
 
+    def put(self, path, params):
+        result = self.get(path, cache=None, params=params, type='PUT')
+        return result
+
     def get(self, path, cache=None, *args, **kwargs):
         if self._authorization_failed:
             logger.debug('Blocking request as previous authorization failed.')
@@ -69,7 +73,8 @@ class OAuthClient(object):
         params = kwargs.pop('params', None)
         path = self._normalise_query_string(path, params)
 
-        _trace('Get "%s"', path)
+        request_type = kwargs.pop('type', 'GET')
+        _trace('Request type %s, path %s',request_type, path)
 
         cached_result = None
         if cache is not None:
@@ -93,7 +98,7 @@ class OAuthClient(object):
 
         # Make sure our headers always override user supplied ones.
         kwargs.setdefault('headers', {}).update(self._headers)
-        result = self._request_with_retries('GET', path, *args, **kwargs)
+        result = self._request_with_retries(request_type, path, *args, **kwargs)
 
         if result is None or 'error' in result:
             return {}
@@ -162,7 +167,7 @@ class OAuthClient(object):
                 response = self._session.send(
                     prepared_request, timeout=remaining_timeout)
             except requests.RequestException as e:
-                logger.debug('Fetching %s failed: %s', prepared_request.url, e)
+                logger.debug('ERROR - Fetching %s failed: %s', prepared_request.url, e)
                 status_code = None
                 backoff_time = None
                 expires = None
@@ -381,6 +386,18 @@ class WebSession(object):
                 count += 1
         logger.info('Loaded %d playlists', count)
         self.playlists_loaded = True
+
+    def save_playlist(self, playlist):
+        playlistid = playlist.uri.split(':')[2]
+        logger.info('Saving Playlist %s',playlist.uri)
+        url = 'playlists/%s/tracks' % playlistid
+        tracks = []
+        for track in playlist.tracks:
+            tracks.append(track.uri)
+
+        params = {'uris': ','.join(tracks)}
+        web_result = self._client.put(url, params)
+        return web_result
 
     def get_playlist(self, uri):
         try:
