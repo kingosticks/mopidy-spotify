@@ -502,6 +502,12 @@ class SpotifyOAuthClient(OAuthClient):
         for key in keys:
             self._cache.pop(key, None)
 
+    def create_playlist(self, name, public=False):
+        url = f"users/{self.user_id}/playlists"
+        response = self.post(url, json={"name": name, "public": public})
+        self.remove_from_cache(url)
+        return response if response.status_ok else {}
+
 
 @unique
 class LinkType(Enum):
@@ -569,13 +575,6 @@ def _playlist_edit(web_client, playlist, method, **kwargs):
     web_client.remove_from_cache(
         f"playlists/{playlist_id}"
     )  # this also fetches the first 100 tracks
-
-
-def create_playlist(web_client, name, public=False):
-    url = f"users/{web_client.user_id}/playlists"
-    response = web_client.post(url, json={"name": name, "public": public})
-    web_client.remove_from_cache(url)
-    return response if response.status_ok else None
 
 
 def delete_playlist(web_client, uri):

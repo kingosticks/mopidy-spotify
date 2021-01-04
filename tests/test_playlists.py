@@ -4,10 +4,10 @@ import functools
 import pytest
 import re
 from mopidy import backend as backend_api
-from mopidy.models import Ref, Track
+from mopidy.models import Playlist, Ref, Track
 
 import spotify
-from mopidy_spotify import playlists, web
+from mopidy_spotify import playlists
 
 
 @pytest.fixture
@@ -191,20 +191,6 @@ def web_client_mock(
 
         return True
 
-    def _create_playlist(method, json):
-        playlist_id = f"spotify:user:alice:playlist:id{len(web_playlists_map)}"
-
-        new_playlist = {
-            "owner": {"id": "alice"},
-            "name": json["name"],
-            "tracks": {"items": []},
-            "uri": playlist_id,
-            "type": "playlist",
-        }
-        web_playlists_map[playlist_id] = new_playlist
-
-        return True, playlist_id
-
     def _delete_playlist(method, playlist_id):
         playlist_id = "spotify:user:alice:playlist:" + playlist_id
         if playlist_id not in web_playlists_map:
@@ -236,14 +222,6 @@ def web_client_mock(
             )
             rv = _edit_playlist(method, playlist_uri, json)
             return mock.Mock(status_ok=rv)
-        elif re.fullmatch(r"users/(.*?)/playlists", path):
-            ok, playlist_id = _create_playlist(method, json)
-            rv = mock.MagicMock(status_ok=ok, spec=web.WebResponse)
-            rv.__getitem__.side_effect = web_playlists_map[
-                playlist_id
-            ].__getitem__
-            rv.get = web_playlists_map[playlist_id].get
-            return rv
         elif re.fullmatch(r"playlists/(.*?)/followers", path):
             playlist_id = path_parts[1]
             rv = _delete_playlist(method, playlist_id)
@@ -285,13 +263,47 @@ def provider(backend_mock, web_client_mock):
     return provider
 
 
-def test_create_playlist(provider):
-    n_before = len(provider.as_list())
-    new_playlist = provider.create("baz")
-    playlists = provider.as_list()
-    n_after = len(playlists)
-    assert new_playlist.name == "baz"
-    assert n_before + 1 == n_after
+def test_create_playlist(provider, web_playlist_mock, web_client_mock, caplog):
+    web_playlist_mock["tracks"]["items"] = []
+    web_client_mock.create_playlist.return_value = web_playlist_mock
+
+    assert Playlist(
+        uri=web_playlist_mock["uri"], name=web_playlist_mock["name"]
+    ) == provider.create("Foo")
+    assert "Created Spotify playlist 'Foo'" in caplog.text
+
+
+def test_create_playlist_tracks(provider, web_playlist_mock, web_client_mock):
+    # New playlists should have no tracks but return them all if present.
+    web_playlist_mock["tracks"]["items"][0]["is_playable"] = False
+    web_client_mock.create_playlist.return_value = web_playlist_mock
+
+    new_playlist = provider.create("Foo")
+
+    assert isinstance(new_playlist, Playlist)
+    assert len(new_playlist.tracks) == 1
+    assert isinstance(new_playlist.tracks[0], Track)
+
+
+@pytest.mark.parametrize("name", [None, ""])
+def test_create_playlist_no_name(provider, name, web_client_mock, caplog):
+    assert provider.create(name) is None
+    assert "Failed to create Spotify playlist with no name" in caplog.text
+    web_client_mock.create_playlist.assert_not_called()
+
+
+def test_create_playlist_not_logged_in(provider, web_client_mock):
+    web_client_mock.logged_in = False
+
+    assert provider.create("Foo") is None
+    web_client_mock.create_playlist.assert_not_called()
+
+
+def test_create_playlist_fails(provider, web_client_mock, caplog):
+    web_client_mock.create_playlist.return_value = {}
+
+    assert provider.create("Bar") is None
+    assert "Failed to create Spotify playlist 'Bar'" in caplog.text
 
 
 def test_rename_playlist(provider):

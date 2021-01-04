@@ -1120,6 +1120,49 @@ class TestSpotifyOAuthClient:
 
         assert spotify_client.logged_in is expected
 
+    @responses.activate
+    @pytest.mark.parametrize(
+        "json_response,method_response",
+        [({"some": "thing"}, {"some": "thing"}), ({"error": "bar"}, {})],
+    )
+    def test_create_playlist(
+        self, spotify_client, json_response, method_response
+    ):
+        responses.add(
+            responses.POST,
+            url("users/alice/playlists"),
+            json=json_response,
+            match=[
+                responses.json_params_matcher({"name": "Foo", "public": False})
+            ],
+        )
+
+        result = spotify_client.create_playlist("Foo")
+
+        assert len(responses.calls) == 1
+        assert method_response == result
+
+    @pytest.mark.skip
+    @responses.activate
+    def test_create_playlist_cache_cleared(self, spotify_client):
+        spotify_client._cache = {
+            "playlists/bar": "bar playlist",
+            "users/alice/playlists": "some playlists",
+            url("users/alice/playlists?offset=50"): "more playlists",
+        }
+        responses.add(
+            responses.POST,
+            url("users/alice/playlists"),
+            json={"some": "thing"},
+            match=[
+                responses.json_params_matcher({"name": "Foo", "public": False})
+            ],
+        )
+
+        assert spotify_client.create_playlist("Foo")
+        assert len(responses.calls) == 1
+        assert {"playlists/bar"} == set(spotify_client._cache)
+
 
 @pytest.mark.parametrize(
     "uri,type_,id_",
