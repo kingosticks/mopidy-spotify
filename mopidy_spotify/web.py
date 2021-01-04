@@ -455,11 +455,7 @@ class SpotifyOAuthClient(OAuthClient):
 
     def get_playlist(self, uri):
         try:
-            parsed = WebLink.from_uri(uri)
-            if parsed.type != LinkType.PLAYLIST:
-                raise ValueError(
-                    f"Could not parse {uri!r} as a Spotify playlist URI"
-                )
+            parsed = WebLink.as_playlist(uri)
         except ValueError as exc:
             logger.error(exc)
             return {}
@@ -557,6 +553,15 @@ class WebLink:
             return cls(uri, LinkType.PLAYLIST, parts[3], parts[1])
 
         raise ValueError(f"Could not parse {uri!r} as a Spotify URI")
+
+    @classmethod
+    def as_playlist(cls, uri):
+        parsed = cls.from_uri(uri)
+        if parsed.type != LinkType.PLAYLIST:
+            raise ValueError(
+                f"Could not parse {uri!r} as a Spotify playlist URI"
+            )
+        return parsed
 
 
 def _playlist_edit(web_client, playlist, method, **kwargs):

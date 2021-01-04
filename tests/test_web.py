@@ -1221,6 +1221,38 @@ def test_weblink_from_uri_raises(uri):
     assert f"Could not parse {uri!r} as a Spotify URI" in str(excinfo.value)
 
 
+@pytest.mark.parametrize(
+    "uri",
+    [
+        ("spotify:playlist:foo"),
+        ("spotify:user:alice:playlist:foo"),
+    ],
+)
+def test_weblink_as_playlist(uri):
+    result = web.WebLink.as_playlist(uri)
+
+    assert result.type == web.LinkType.PLAYLIST
+    assert result.id == "foo"
+
+
+@pytest.mark.parametrize(
+    "uri,msg",
+    [
+        ("spotify:track:foo", "Spotify playlist"),
+        ("spotify:album:foo", "Spotify playlist"),
+        ("spotify:artist:foo", "Spotify playlist"),
+        ("spotify:unknown:foo", "Spotify"),
+        ("total_junk", "Spotify"),
+    ],
+)
+def test_weblink_as_playlist_raises(uri, msg):
+    with pytest.raises(ValueError) as excinfo:
+        result = web.WebLink.as_playlist(uri)
+        assert result is None
+
+    assert f"Could not parse {uri!r} as a {msg} URI" in str(excinfo.value)
+
+
 def test_remove_from_cache(spotify_client):
     spotify_client._cache = {
         "foo": 1,  # exact match
