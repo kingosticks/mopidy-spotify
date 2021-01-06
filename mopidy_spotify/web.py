@@ -515,6 +515,16 @@ class SpotifyOAuthClient(OAuthClient):
         self.remove_from_cache(url)
         return response if response.status_ok else {}
 
+    def delete_playlist(self, uri):
+        playlist_id = self.get_id_from_uri(uri, LinkType.PLAYLIST)
+        if playlist_id is None:
+            return False
+
+        response = self.delete(f"playlists/{playlist_id}/followers")
+        self.remove_from_cache(f"users/{self.user_id}/playlists")
+        self.remove_from_cache(f"playlists/{playlist_id}")
+        return response.status_ok
+
 
 @unique
 class LinkType(Enum):
@@ -582,15 +592,6 @@ def _playlist_edit(web_client, playlist, method, **kwargs):
     web_client.remove_from_cache(
         f"playlists/{playlist_id}"
     )  # this also fetches the first 100 tracks
-
-
-def delete_playlist(web_client, uri):
-    playlist_id = WebLink.from_uri(uri).id
-    url = f"playlists/{playlist_id}/followers"
-    response = web_client.delete(url)
-    web_client.remove_from_cache(f"users/{web_client.user_id}/playlists")
-    web_client.remove_from_cache(f"playlists/{playlist_id}")
-    return response.status_ok
 
 
 def rename_playlist(web_client, uri, name):

@@ -191,14 +191,6 @@ def web_client_mock(
 
         return True
 
-    def _delete_playlist(method, playlist_id):
-        playlist_id = "spotify:user:alice:playlist:" + playlist_id
-        if playlist_id not in web_playlists_map:
-            return False
-
-        del web_playlists_map[playlist_id]
-        return True
-
     def _rename_playlist(method, playlist_uri, json):
         assert "name" in json
         web_playlists_map[playlist_uri]["name"] = json["name"]
@@ -221,10 +213,6 @@ def web_client_mock(
                 )
             )
             rv = _edit_playlist(method, playlist_uri, json)
-            return mock.Mock(status_ok=rv)
-        elif re.fullmatch(r"playlists/(.*?)/followers", path):
-            playlist_id = path_parts[1]
-            rv = _delete_playlist(method, playlist_id)
             return mock.Mock(status_ok=rv)
         elif re.fullmatch(r"playlists/(.*?)", path):
             playlist_id = path_parts[1]
@@ -314,24 +302,38 @@ def test_rename_playlist(provider):
     assert retval.name == new_name
 
 
-def test_delete_playlist(provider):
-    n_before = len(provider.as_list())
-    playlist_id = "spotify:user:alice:playlist:foo"
-    rv = provider.delete(playlist_id)
-    n_after = len(provider.as_list())
-    assert rv is True
-    assert n_before - 1 == n_after
+def test_delete_playlist(provider, web_client_mock, caplog):
+    web_client_mock.delete_playlist.return_value = True
+
+    assert provider.delete("spotify:user:alice:playlist:foo")
+    assert (
+        "Deleted Spotify playlist 'spotify:user:alice:playlist:foo'"
+        in caplog.text
+    )
 
 
-def test_delete_nonexisting_playlist(provider):
-    n_before = len(provider.as_list())
-    playlist_id = "spotify:user:alice:playlist:nonexisting"
-    rv = provider.delete(playlist_id)
-    n_after = len(provider.as_list())
-    assert rv is False
-    assert n_before == n_after
+def test_delete_playlist_not_logged_in(provider, web_client_mock, caplog):
+    web_client_mock.logged_in = False
+
+    assert not provider.delete("spotify:user:alice:playlist:foo")
+    web_client_mock.delete_playlist.assert_not_called()
+    assert "Deleted Spotify playlist" not in caplog.text
 
 
+def test_delete_playlist_failed(provider, web_client_mock, caplog):
+    web_client_mock.delete_playlist.return_value = False
+
+    assert not provider.delete("spotify:user:alice:playlist:foo")
+    assert (
+        "Failed to delete Spotify playlist 'spotify:user:alice:playlist:foo'"
+        in caplog.text
+    )
+    assert "Deleted Spotify playlist" not in caplog.text
+
+
+@pytest.mark.skip(
+    reason="Come back to this when save() is done. And is this useful?"
+)
 def test_edit_deleted_playlist(provider):
     # this might happen if we edit a (cached) playlist
     # that has been deleted in the mean time.

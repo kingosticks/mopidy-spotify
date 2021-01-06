@@ -766,6 +766,20 @@ def foo_playlist(playlist_parms, foo_playlist_tracks):
     }
 
 
+@pytest.fixture
+def playlist_cached_uris():
+    return {
+        "users/alice/playlists": "some playlists",
+        url("users/alice/playlists?offset=50"): "more playlists",
+        "playlists/bar": "bar playlist",
+        "playlists/foo": "foo playlist",
+        "playlists/foo/tracks": "foo playlist tracks",
+        "playlists/foo/tracks?more": "foo playlist tracks more",
+        url("playlists/foo/tracks"): "foo playlist tracks alt",
+        url("playlists/foo/tracks?more"): "foo playlist tracks more alt",
+    }
+
+
 @pytest.mark.usefixtures("skip_refresh_token")
 class TestSpotifyOAuthClient:
     @pytest.mark.parametrize(
@@ -1192,6 +1206,42 @@ class TestSpotifyOAuthClient:
         assert spotify_client.create_playlist("Foo")
         assert len(responses.calls) == 1
         assert {"playlists/bar"} == set(spotify_client._cache)
+
+    @responses.activate
+    @pytest.mark.parametrize(
+        "json_response,code,expected",
+        [({}, 200, True), ({}, 404, False), ({"error": "bar"}, 400, False)],
+    )
+    def test_delete_playlist(
+        self, spotify_client, json_response, code, expected
+    ):
+        responses.add(
+            responses.DELETE,
+            url("playlists/foo/followers"),
+            json=json_response,
+            status=code,
+        )
+
+        assert (
+            spotify_client.delete_playlist("spotify:playlist:foo") == expected
+        )
+        assert len(responses.calls) == 1
+
+    @pytest.mark.skip()
+    @responses.activate
+    def test_delete_playlist_cache_cleared(
+        self, spotify_client, playlist_cached_uris
+    ):
+        spotify_client._cache = playlist_cached_uris
+        responses.add(
+            responses.DELETE,
+            url("playlists/foo/followers"),
+            json={},
+        )
+
+        assert spotify_client.delete_playlist("spotify:playlist:foo")
+        assert len(responses.calls) == 1
+        assert {"playlists/bar"} == set(spotify_client._cache.keys())
 
 
 @pytest.mark.parametrize(

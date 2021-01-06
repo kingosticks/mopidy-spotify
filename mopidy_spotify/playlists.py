@@ -165,9 +165,15 @@ class SpotifyPlaylistsProvider(backend.PlaylistsProvider):
         )
 
     def delete(self, uri):
-        logger.info(f"Deleting Spotify playlist {uri!r}")
-        ok = web.delete_playlist(self._backend._web_client, uri)
-        return ok
+        if not self._backend._web_client.logged_in:
+            return False
+
+        if not self._backend._web_client.delete_playlist(uri):
+            logger.error(f"Failed to delete Spotify playlist {uri!r}")
+            return False
+
+        logger.info(f"Deleted Spotify playlist {uri!r}")
+        return True
 
     @staticmethod
     def _len_replace(playlist_tracks, n=_chunk_size):
