@@ -1120,6 +1120,36 @@ class TestSpotifyOAuthClient:
 
         assert spotify_client.logged_in is expected
 
+    @pytest.mark.parametrize(
+        "uri,link_type,expected_id",
+        [
+            ("spotify:playlist:foo", web.LinkType.PLAYLIST, "foo"),
+            ("spotify:user:alice:playlist:foo", web.LinkType.PLAYLIST, "foo"),
+            ("spotify:track:car", web.LinkType.TRACK, "car"),
+            ("http://open.spotify.com/track/bob", web.LinkType.TRACK, "bob"),
+            ("spotify:album:jim", web.LinkType.ALBUM, "jim"),
+        ],
+    )
+    def test_get_id_from_uri(self, spotify_client, uri, link_type, expected_id):
+        assert spotify_client.get_id_from_uri(uri, link_type) == expected_id
+
+    @pytest.mark.parametrize(
+        "uri,link_type,type_name",
+        [
+            ("spotify:playlist:foo", web.LinkType.TRACK, " track "),
+            ("spotify:user:a:playlist:foo", web.LinkType.ARTIST, " artist "),
+            ("spotify:track:car", web.LinkType.PLAYLIST, " playlist "),
+            ("spotify_junk:thing", web.LinkType.PLAYLIST, " "),
+        ],
+    )
+    def test_get_id_from_uri_invalid(
+        self, spotify_client, uri, link_type, type_name, caplog
+    ):
+        assert spotify_client.get_id_from_uri(uri, link_type) is None
+
+        assert "Could not parse " in caplog.text
+        assert f" as a Spotify{type_name}URI" in caplog.text
+
     @responses.activate
     @pytest.mark.parametrize(
         "json_response,method_response",
@@ -1219,38 +1249,6 @@ def test_weblink_from_uri_raises(uri):
         assert result is None
 
     assert f"Could not parse {uri!r} as a Spotify URI" in str(excinfo.value)
-
-
-@pytest.mark.parametrize(
-    "uri",
-    [
-        ("spotify:playlist:foo"),
-        ("spotify:user:alice:playlist:foo"),
-    ],
-)
-def test_weblink_as_playlist(uri):
-    result = web.WebLink.as_playlist(uri)
-
-    assert result.type == web.LinkType.PLAYLIST
-    assert result.id == "foo"
-
-
-@pytest.mark.parametrize(
-    "uri,msg",
-    [
-        ("spotify:track:foo", "Spotify playlist"),
-        ("spotify:album:foo", "Spotify playlist"),
-        ("spotify:artist:foo", "Spotify playlist"),
-        ("spotify:unknown:foo", "Spotify"),
-        ("total_junk", "Spotify"),
-    ],
-)
-def test_weblink_as_playlist_raises(uri, msg):
-    with pytest.raises(ValueError) as excinfo:
-        result = web.WebLink.as_playlist(uri)
-        assert result is None
-
-    assert f"Could not parse {uri!r} as a {msg} URI" in str(excinfo.value)
 
 
 def test_remove_from_cache(spotify_client):

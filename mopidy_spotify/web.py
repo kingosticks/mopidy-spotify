@@ -454,14 +454,12 @@ class SpotifyOAuthClient(OAuthClient):
             yield from page.get("items", [])
 
     def get_playlist(self, uri):
-        try:
-            parsed = WebLink.as_playlist(uri)
-        except ValueError as exc:
-            logger.error(exc)
+        playlist_id = self.get_id_from_uri(uri, LinkType.PLAYLIST)
+        if playlist_id is None:
             return {}
 
         playlist = self.get_one(
-            f"playlists/{parsed.id}",
+            f"playlists/{playlist_id}",
             params={"fields": self.PLAYLIST_FIELDS, "market": "from_token"},
         )
 
@@ -497,6 +495,19 @@ class SpotifyOAuthClient(OAuthClient):
         }
         for key in keys:
             self._cache.pop(key, None)
+
+    @staticmethod
+    def get_id_from_uri(uri, weblink_type):
+        try:
+            parsed = WebLink.from_uri(uri)
+            if parsed.type != weblink_type:
+                raise ValueError(
+                    f"Could not parse {uri!r} as a Spotify {weblink_type.value} URI"
+                )
+            return parsed.id
+        except ValueError as exc:
+            logger.error(exc)
+            return None
 
     def create_playlist(self, name, public=False):
         url = f"users/{self.user_id}/playlists"
@@ -553,15 +564,6 @@ class WebLink:
             return cls(uri, LinkType.PLAYLIST, parts[3], parts[1])
 
         raise ValueError(f"Could not parse {uri!r} as a Spotify URI")
-
-    @classmethod
-    def as_playlist(cls, uri):
-        parsed = cls.from_uri(uri)
-        if parsed.type != LinkType.PLAYLIST:
-            raise ValueError(
-                f"Could not parse {uri!r} as a Spotify playlist URI"
-            )
-        return parsed
 
 
 def _playlist_edit(web_client, playlist, method, **kwargs):
