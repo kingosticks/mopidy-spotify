@@ -191,10 +191,6 @@ def web_client_mock(
 
         return True
 
-    def _rename_playlist(method, playlist_uri, json):
-        assert "name" in json
-        web_playlists_map[playlist_uri]["name"] = json["name"]
-
     web_client_mock._test_requests_history = (
         []
     )  # gets instanciated for each test_*()
@@ -214,17 +210,6 @@ def web_client_mock(
             )
             rv = _edit_playlist(method, playlist_uri, json)
             return mock.Mock(status_ok=rv)
-        elif re.fullmatch(r"playlists/(.*?)", path):
-            playlist_id = path_parts[1]
-            playlist_uri = next(
-                (
-                    k
-                    for k in web_playlists_map.keys()
-                    if k.endswith(f":playlist:{playlist_id}")
-                )
-            )
-            _rename_playlist(method, playlist_uri, json)
-            return mock.Mock(status_ok=True)
         else:
             raise NotImplementedError
 
@@ -294,12 +279,42 @@ def test_create_playlist_fails(provider, web_client_mock, caplog):
     assert "Failed to create Spotify playlist 'Bar'" in caplog.text
 
 
-def test_rename_playlist(provider):
-    new_name = "Foobar"
-    playlist = provider.lookup("spotify:user:alice:playlist:foo")
-    new_pl = playlist.replace(name=new_name)
-    retval = provider.save(new_pl)
-    assert retval.name == new_name
+def test_rename_playlist(provider, web_client_mock, caplog):
+    web_client_mock.rename_playlist.return_value = True
+
+    old_playlist = Playlist(uri="spotify:playlist:foo", name="Foo")
+    new_playlist = old_playlist.replace(name="Foobar")
+    provider._rename(old_playlist, new_playlist)
+
+    web_client_mock.rename_playlist.assert_called_once_with(
+        "spotify:playlist:foo", "Foobar"
+    )
+    assert "Renamed Spotify playlist 'Foo' to 'Foobar'" in caplog.text
+
+
+@pytest.mark.parametrize("name", [None, "", "Foo"])
+def test_rename_playlist_skipped_if_unchange(
+    provider, web_client_mock, name, caplog
+):
+    old_playlist = Playlist(uri="spotify:playlist:foo", name="Foo")
+    new_playlist = old_playlist.replace(name=name)
+    provider._rename(old_playlist, new_playlist)
+
+    web_client_mock.rename_playlist.assert_not_called()
+    assert "'Spotify playlist 'Foo'" not in caplog.text
+
+
+def test_rename_playlist_fails(provider, web_client_mock, caplog):
+    web_client_mock.rename_playlist.return_value = False
+
+    old_playlist = Playlist(uri="spotify:playlist:foo", name="Foo")
+    new_playlist = old_playlist.replace(name="Foobar")
+    provider._rename(old_playlist, new_playlist)
+
+    web_client_mock.rename_playlist.assert_called_once_with(
+        "spotify:playlist:foo", "Foobar"
+    )
+    assert "Failed to rename Spotify playlist 'Foo' to 'Foobar'" in caplog.text
 
 
 def test_delete_playlist(provider, web_client_mock, caplog):

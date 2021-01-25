@@ -1243,6 +1243,71 @@ class TestSpotifyOAuthClient:
         assert len(responses.calls) == 1
         assert {"playlists/bar"} == set(spotify_client._cache.keys())
 
+    @responses.activate
+    @pytest.mark.parametrize(
+        "uri,name,expected",
+        [
+            ("spotify:playlist:foo", "bob", True),
+            ("spotify:playlist:foo", "", False),
+            ("spotify:track:foo", "i am a track", False),
+            ("", "sheep", False),
+        ],
+    )
+    def test_rename_playlist_args(self, spotify_client, uri, name, expected):
+        responses.add(
+            responses.PUT,
+            url("playlists/foo"),
+            json={},
+            match=[responses.json_params_matcher({"name": name})],
+        )
+
+        assert spotify_client.rename_playlist(uri, name) == expected
+        if expected:
+            assert len(responses.calls) == 1
+
+    @responses.activate
+    @pytest.mark.parametrize(
+        "json_response,code,expected",
+        [
+            ({}, 200, True),
+            ({}, 400, False),
+            ({"error": {"status": 403, "message": "Not allowed"}}, 403, False),
+        ],
+    )
+    def test_rename_playlist(
+        self, spotify_client, json_response, code, expected
+    ):
+        responses.add(
+            responses.PUT,
+            url("playlists/foo"),
+            json=json_response,
+            match=[responses.json_params_matcher({"name": "cat"})],
+            status=code,
+        )
+
+        assert (
+            spotify_client.rename_playlist("spotify:playlist:foo", "cat")
+            == expected
+        )
+        assert len(responses.calls) == 1
+
+    @pytest.mark.skip()
+    @responses.activate
+    def test_rename_playlist_cache_cleared(
+        self, spotify_client, playlist_cached_uris
+    ):
+        spotify_client._cache = playlist_cached_uris
+
+        responses.add(
+            responses.PUT,
+            url("playlists/foo"),
+            json={},
+        )
+
+        assert spotify_client.rename_playlist("spotify:playlist:foo", "cat")
+        assert len(responses.calls) == 1
+        assert {"playlists/bar"} == set(spotify_client._cache.keys())
+
 
 @pytest.mark.parametrize(
     "uri,type_,id_",

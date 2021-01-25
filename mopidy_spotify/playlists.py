@@ -254,21 +254,7 @@ class SpotifyPlaylistsProvider(backend.PlaylistsProvider):
             logger.error(f'Created backup of new state in "{filename}"')
             return None
 
-        if playlist.name and playlist.name != saved_playlist.name:
-            try:
-                web.rename_playlist(
-                    self._backend._web_client, playlist.uri, playlist.name
-                )
-                logger.info(
-                    f"Renamed Spotify playlist '{saved_playlist.name}' to "
-                    f"'{playlist.name}'"
-                )
-            except web.OAuthClientError as e:
-                logger.error(
-                    f"Renaming Spotify playlist '{saved_playlist.name}'"
-                    f"to '{playlist.name}' failed with error {e}"
-                )
-
+        self._rename(saved_playlist, playlist)
         return self.lookup(saved_playlist.uri)
 
     def create_backup(self, playlist, extra):
@@ -290,6 +276,21 @@ class SpotifyPlaylistsProvider(backend.PlaylistsProvider):
                 )
 
         return str(filename)
+
+    def _rename(self, saved_playlist, playlist):
+        if playlist.name and playlist.name != saved_playlist.name:
+            if self._backend._web_client.rename_playlist(
+                playlist.uri, playlist.name
+            ):
+                logger.info(
+                    f"Renamed Spotify playlist '{saved_playlist.name}' to "
+                    f"'{playlist.name}'"
+                )
+            else:
+                logger.error(
+                    f"Failed to rename Spotify playlist '{saved_playlist.name}'"
+                    f" to '{playlist.name}'"
+                )
 
 
 def playlist_lookup(
