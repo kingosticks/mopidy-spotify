@@ -1,5 +1,4 @@
 import copy
-from unittest import mock
 
 import spotify
 
