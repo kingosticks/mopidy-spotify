@@ -453,7 +453,7 @@ class SpotifyOAuthClient(OAuthClient):
         more_tracks = []
         for page in track_pages:
             if "items" not in page:
-                return {} # An error occured
+                return {}  # An error occured
             more_tracks += page.get("items", [])
 
         if more_tracks:
@@ -461,7 +461,7 @@ class SpotifyOAuthClient(OAuthClient):
             obj = copy.deepcopy(obj)
             obj.setdefault("tracks", {}).setdefault("items", [])
             obj["tracks"]["items"] += more_tracks
-        
+
         return obj
 
     def get_playlist(self, uri):
@@ -480,7 +480,6 @@ class SpotifyOAuthClient(OAuthClient):
             params={"fields": self.PLAYLIST_FIELDS, "market": "from_token"},
         )
         return self._with_all_tracks(playlist, {"fields": self.TRACK_FIELDS})
-        
 
     def get_album(self, web_link):
         if web_link.type != LinkType.ALBUM:
@@ -511,15 +510,13 @@ class SpotifyOAuthClient(OAuthClient):
             if album.get("is_playable", False):
                 yield self.get_album(web_link)
 
-
     def get_track(self, web_link):
         if web_link.type != LinkType.TRACK:
             logger.error(f"Expecting Spotify track URI")
             return {}
 
         return self.get_one(
-            f"tracks/{web_link.id}",
-            params={"market": "from_token"}
+            f"tracks/{web_link.id}", params={"market": "from_token"}
         )
 
     def clear_cache(self, extra_expiry=None):

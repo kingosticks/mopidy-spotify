@@ -95,7 +95,10 @@ def _browse_playlist(web_client, uri, config):
 
 
 def _browse_album(session, uri, config):
-    if session is None or session.connection.state is not spotify.ConnectionState.LOGGED_IN:
+    if (
+        session is None
+        or session.connection.state is not spotify.ConnectionState.LOGGED_IN
+    ):
         return []
 
     sp_album_browser = session.get_album(uri).browse()
@@ -108,7 +111,10 @@ def _browse_album(session, uri, config):
 
 
 def _browse_artist(session, uri, config):
-    if session is None or session.connection.state is not spotify.ConnectionState.LOGGED_IN:
+    if (
+        session is None
+        or session.connection.state is not spotify.ConnectionState.LOGGED_IN
+    ):
         return []
 
     sp_artist_browser = session.get_artist(uri).browse(

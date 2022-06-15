@@ -323,8 +323,7 @@ def web_to_album_tracks(web_album, bitrate=None):
         return []
 
     tracks = [
-        web_to_track(web_track, bitrate, album)
-        for web_track in web_tracks
+        web_to_track(web_track, bitrate, album) for web_track in web_tracks
     ]
     return [t for t in tracks if t]
 

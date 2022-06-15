@@ -332,6 +332,7 @@ def web_album_mock_base(web_artist_mock):
         "artists": [web_artist_mock],
     }
 
+
 @pytest.fixture
 def web_album_mock(web_album_mock_base, web_track_mock_base):
     return {
