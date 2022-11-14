@@ -1,4 +1,3 @@
-import os
 import collections
 import logging
 
@@ -249,12 +248,9 @@ def web_to_track(web_track, bitrate=None, album=None):
 
     if album is None:
         album = web_to_album(web_track.get("album", {}))
-
-    username = os.getenv('SPOTIFY_USERNAME')
-    password = os.getenv('SPOTIFY_PASSWORD')
         
     return models.Track(
-        uri=ref.uri + '?username=' + username + '&password=' + password,
+        uri=ref.uri,
         name=ref.name,
         artists=artists,
         album=album,
